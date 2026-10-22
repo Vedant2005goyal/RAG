@@ -1,9 +1,13 @@
 import pydantic
+import os 
+from dotenv import load_dotenv
 from github import issues,prs 
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 import uuid
+
+load_dotenv()
 
 embedding_text=[]
 client=QdrantClient(path="./qdrant_db")
@@ -34,7 +38,7 @@ for pr in prs:
     })
 
 embeddings=[]
-embedding_model=SentenceTransformer("BAAI/bge-small-en-v1.5")
+embedding_model=SentenceTransformer(os.getenv("EMBEDDING_MODEL"))
 for i in range(len(embedding_text)):
     text=embedding_text[i]["text"]
     embedding=embedding_model.encode(text)
