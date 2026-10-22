@@ -1,2 +1,6 @@
 .env
 *.json
+<<<<<<< HEAD
+=======
+./qdrant_db
+>>>>>>> a63a545 (Initial very basic rag working on github data only)
