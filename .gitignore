@@ -1,3 +1,3 @@
 .env
 *.json
-./qdrant_db
+qdrant_db/
