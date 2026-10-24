@@ -1,2 +1,5 @@
+RAG-env
 .env
-*.json
+qdrant_db
+receipes.py
+__pycache__
