@@ -45,9 +45,9 @@ for i in range(len(embedding_text)):
     embeddings.append(embedding)
 print(len(embeddings))
 
-if not client.collection_exists("payment_service"):
+if not client.collection_exists(os.getenv("COLLECTION_NAME")):
     client.create_collection(
-        collection_name="payment_service",
+        collection_name=os.getenv("COLLECTION_NAME"),
         vectors_config=models.VectorParams(size=384,distance=models.Distance.COSINE)
     )
 
@@ -64,7 +64,7 @@ for i,item in enumerate(embedding_text):
     )
     points.append(point)
 client.upsert(
-    collection_name="payment_service",
+    collection_name=os.getenv("COLLECTION_NAME"),
     points=points
 )
 
