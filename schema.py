@@ -18,3 +18,8 @@ class GithubPR(GithubData):
     merged_at:str
     merge_commit_sha:str
     
+class LocalDocument(BaseModel):
+    source_uri: str
+    title: str
+    content: str
+    chunk_index: int
