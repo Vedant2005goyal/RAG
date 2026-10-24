@@ -6,8 +6,8 @@ import requests
 from schema import GithubData, GithubIssues, GithubPR
 
 load_dotenv()
-owner="open-telemetry"
-repo="opentelemetry-demo"
+owner=os.getenv('OWNER')
+repo=os.getenv('REPO')
 
 def fetch_closed_issue(owner:str, repo:str):
     headers = {
