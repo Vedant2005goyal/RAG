@@ -44,7 +44,10 @@ def agent_loop(
 
         for result in retrieved_context:
             context+=f"{result.payload}\n"
-        
+            print(f"\nScore: {result.score}")
+            print(f"Source: {result.payload.get('url') or result.payload.get('source_uri')}")
+            print(f"Content: {result.payload.get('content', '')[:300]}")
+
         prompt=f"User query:{user_query} context: {context}"
         
         message.append(
@@ -70,8 +73,6 @@ def agent_loop(
             "content": llm_reply
         })
 
-
-        print(response.choices[0].message.content)
     
 if __name__ == "__main__":
     embedding_model = get_embedding_model()
