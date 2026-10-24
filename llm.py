@@ -6,6 +6,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from embedding import get_embedding_model, create_and_setup_qdrant_client
 from helpers import require_env
 from constants import SYSTEM_PROMPT, EXIT_COMMANDS
+import os
 
 # type hints only
 from sentence_transformers import SentenceTransformer
@@ -34,7 +35,7 @@ def agent_loop(
         user_query_embedding = embedding_model.encode(user_query).tolist()
         
         retrieved_context = qdrant_client.query_points(
-            collection_name="payment_service",
+            collection_name=os.getenv("COLLECTION_NAME"),
             query=user_query_embedding,
             limit=5,
             with_payload=True

@@ -21,13 +21,4 @@ EXIT_COMMANDS = [
     "quit",
 ]
 
-COMPACTION_PROMPT = """
-Summarize the conversation history for future continuation.
 
-Preserve important facts, user preferences, decisions, technical details,
-relevant tool results, and unresolved tasks.
-
-Distinguish verified results from assumptions. Do not invent information.
-Be concise while preserving information needed for future responses.
-Return only the summary.
-"""
