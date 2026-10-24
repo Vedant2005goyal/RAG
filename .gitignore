@@ -5,3 +5,4 @@ receipes.py
 __pycache__
 *.json
 qdrant_db/
+local_files/
