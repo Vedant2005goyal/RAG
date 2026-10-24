@@ -1,50 +1,85 @@
-import os
-from openai import OpenAI 
 from dotenv import load_dotenv
-from embedding import embedding_model,client
-
 load_dotenv()
 
-client1=OpenAI(
-    base_url=os.getenv("MODEL_URL"),
-    api_key=os.getenv("API_KEY")
-)
+from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
+from embedding import get_embedding_model, create_and_setup_qdrant_client
+from helpers import require_env
+from constants import SYSTEM_PROMPT, EXIT_COMMANDS
 
-message=[]
-message.append(
-    {
-        "role":"system",
-        "content":"You are an SRE investigating a production incident. Do very cautious of what claims You are making and keep the conten in under 100 words"
-    }
-)
+# type hints only
+from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
 
-while True:
-    user_query=input("Describe the incident: ")
-    if user_query.lower() in ["machuda", "exit", "chup", "quit", "bye"]:
-        break
+def agent_loop(
+        embedding_model: SentenceTransformer,
+        qdrant_client: QdrantClient,
+        llm_client: OpenAI
+    ):
+    """ Runs the main conversation loop """
 
-    user_query_embedding=embedding_model.encode(user_query).tolist()
-    retrieved_context=client.query_points(
-        collection_name="payment_service",
-        query=user_query_embedding,
-        limit=5,
-        with_payload=True
-    ).points
-    
-    context=""
-    for result in retrieved_context:
-        context+=f"{result.payload}\n"
-    prompt=f"User query:{user_query} context: {context}"
-    
-    message.append(
+    message: list[ChatCompletionMessageParam] = [
         {
-            "role":"user",
-            "content":prompt
+            "role":"system",
+            "content": SYSTEM_PROMPT
         }
-    )
-    response=client1.chat.completions.create(
-        model=os.getenv("MODEL"),
-        messages=message
-    )
-    print(response.choices[0].message.content)
+    ]
+
+    while True:
+        user_query = input("Describe the incident: ")
+        
+        if user_query.lower() in EXIT_COMMANDS:
+            break
+
+        user_query_embedding = embedding_model.encode(user_query).tolist()
+        
+        retrieved_context = qdrant_client.query_points(
+            collection_name="payment_service",
+            query=user_query_embedding,
+            limit=5,
+            with_payload=True
+        ).points
+        
+        context=""
+
+        for result in retrieved_context:
+            context+=f"{result.payload}\n"
+        
+        prompt=f"User query:{user_query} context: {context}"
+        
+        message.append(
+            {
+                "role":"user",
+                "content":prompt
+            }
+        )
+        response=llm_client.chat.completions.create(
+            model=require_env("MODEL"),
+            messages=message
+        )
+
+        llm_reply = response.choices[0].message.content
+
+        if not llm_reply:
+            raise RuntimeError("LLM Response is empty.")
+
+        print(llm_reply)
+
+        message.append({
+            "role": "assistant",
+            "content": llm_reply
+        })
+
+
+        print(response.choices[0].message.content)
     
+if __name__ == "__main__":
+    embedding_model = get_embedding_model()
+    qdrant_client   = create_and_setup_qdrant_client(embedding_model=embedding_model) 
+
+    llm_client = OpenAI(
+        base_url = require_env("MODEL_URL"),
+        api_key  = require_env("API_KEY")
+    )
+
+    agent_loop(embedding_model, qdrant_client, llm_client)
