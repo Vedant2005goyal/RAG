@@ -1,5 +1,4 @@
 RAG-env
 .env
 qdrant_db
-receipes.py
 __pycache__
