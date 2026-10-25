@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
-from embedding import get_embedding_model, create_and_setup_qdrant_client
+from embedding import get_embedding_model, get_qdrant_client
 from helpers import require_env
 from constants import SYSTEM_PROMPT, EXIT_COMMANDS
 from sentence_transformers import SentenceTransformer
@@ -60,7 +60,7 @@ def agent_loop(embedding_model: SentenceTransformer, qdrant_client: QdrantClient
         if not llm_reply:
             raise RuntimeError("LLM Response is empty.")
 
-        print(llm_reply)
+        print(f"Assistant reply: {llm_reply}")
 
         message.append({
             "role": "assistant",
@@ -70,7 +70,7 @@ def agent_loop(embedding_model: SentenceTransformer, qdrant_client: QdrantClient
     
 if __name__ == "__main__":
     embedding_model = get_embedding_model()
-    qdrant_client   = create_and_setup_qdrant_client(embedding_model=embedding_model) 
+    qdrant_client   = get_qdrant_client() 
 
     llm_client = OpenAI(
         base_url = require_env("MODEL_URL"),

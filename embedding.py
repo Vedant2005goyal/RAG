@@ -3,8 +3,6 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 from github import load_github_data
 
-issues, prs = load_github_data()
-
 def get_embedding_model(model_name : str = "BAAI/bge-small-en-v1.5") -> SentenceTransformer:
     """ Returns the embedding model to be used by the RAG. """
     return SentenceTransformer(model_name)
@@ -13,6 +11,7 @@ def create_and_setup_qdrant_client(embedding_model : SentenceTransformer,path: s
     """ Sets up Qdrant Client with inital embeddings. """
     client = QdrantClient(path=path)
     embedding_text = []
+    issues, prs = load_github_data()
 
     for issue in issues:
         embedding_text.append({
@@ -73,7 +72,18 @@ def create_and_setup_qdrant_client(embedding_model : SentenceTransformer,path: s
 
     return client
 
+def get_qdrant_client(path:str="./qdrant_db")->QdrantClient:
+    """This function is used to share the same qdrant client across all the files
+    rather than creating multiple seperate clients to same DB"""
+    return QdrantClient(path=path)
+
 if __name__ == "__main__":
     embedding_model = get_embedding_model()
-    client = create_and_setup_qdrant_client(embedding_model)
+    client_created=False 
+    if client_created==False:
+        client = create_and_setup_qdrant_client(embedding_model)
+        client_created=True 
+    else: 
+        print("Client already created!")
+
     client.close()
