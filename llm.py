@@ -8,6 +8,8 @@ from constants import SYSTEM_PROMPT, EXIT_COMMANDS
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 
+SCORE_THRESHOLD=0.60
+
 load_dotenv()
 
 def agent_loop(embedding_model: SentenceTransformer, qdrant_client: QdrantClient, llm_client: OpenAI):
@@ -33,6 +35,10 @@ def agent_loop(embedding_model: SentenceTransformer, qdrant_client: QdrantClient
             limit=5,
             with_payload=True
         ).points
+       
+        retrieved_context = [result for result in retrieved_context 
+            if result.score is not None and result.score >= SCORE_THRESHOLD
+        ]
         
         context=""
 
