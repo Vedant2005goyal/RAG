@@ -5,19 +5,12 @@ from github import load_github_data
 
 issues, prs = load_github_data()
 
-def get_embedding_model(
-        model_name : str = "BAAI/bge-small-en-v1.5"
-    ) -> SentenceTransformer:
+def get_embedding_model(model_name : str = "BAAI/bge-small-en-v1.5") -> SentenceTransformer:
     """ Returns the embedding model to be used by the RAG. """
-    
     return SentenceTransformer(model_name)
 
-def create_and_setup_qdrant_client(
-        embedding_model : SentenceTransformer,
-        path            : str = "./qdrant_db"
-    ) -> QdrantClient:
+def create_and_setup_qdrant_client(embedding_model : SentenceTransformer,path: str = "./qdrant_db") -> QdrantClient:
     """ Sets up Qdrant Client with inital embeddings. """
-
     client = QdrantClient(path=path)
     embedding_text = []
 

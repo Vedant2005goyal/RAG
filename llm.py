@@ -1,24 +1,17 @@
+import os
 from dotenv import load_dotenv
-load_dotenv()
-
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from embedding import get_embedding_model, create_and_setup_qdrant_client
 from helpers import require_env
 from constants import SYSTEM_PROMPT, EXIT_COMMANDS
-import os
-
-# type hints only
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 
-def agent_loop(
-        embedding_model: SentenceTransformer,
-        qdrant_client: QdrantClient,
-        llm_client: OpenAI
-    ):
-    """ Runs the main conversation loop """
+load_dotenv()
 
+def agent_loop(embedding_model: SentenceTransformer, qdrant_client: QdrantClient, llm_client: OpenAI):
+    """ Runs the main conversation loop """
     message: list[ChatCompletionMessageParam] = [
         {
             "role":"system",
