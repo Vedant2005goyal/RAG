@@ -23,3 +23,21 @@ class LocalDocument(BaseModel):
     title: str
     content: str
     chunk_index: int
+
+class AgentResponse(BaseModel):
+    incident: str
+    answer: str
+    sources: list[dict]
+
+class UserQuery(BaseModel):
+    model_config=ConfigDict(extra="ignore")
+    query:str
+
+class RetrievedChunk(BaseModel):
+    score: float
+    content: str
+    source: str | None = None
+    title: str | None = None
+    source_type: str | None = None
+    number: int | None = None
+
