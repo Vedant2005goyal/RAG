@@ -1,8 +1,4 @@
 RAG-env
 .env
 qdrant_db
-receipes.py
 __pycache__
-*.json
-qdrant_db/
-local_files/
