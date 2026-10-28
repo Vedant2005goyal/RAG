@@ -1,26 +1,14 @@
 import os
 import warnings
-
-# Suppress the Ragas deprecation warnings to keep the console output clean
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 from datasets import Dataset
 from dotenv import load_dotenv
 from openai import OpenAI, AsyncOpenAI
 from qdrant_client import QdrantClient
 from ragas import evaluate
+from ragas.metrics import Faithfulness, LLMContextPrecisionWithReference,LLMContextRecall
 from ragas.llms import llm_factory
-from ragas.run_config import RunConfig
-
-# Back to your ORIGINAL working imports
-from ragas.metrics import (
-    Faithfulness,
-    LLMContextPrecisionWithReference,
-    LLMContextRecall,
-)
-
 from constants import SYSTEM_PROMPT
-from embedding import get_embedding_model
+from embedding import get_embedding_model,get_qdrant_client   
 from helpers import require_env
 
 load_dotenv()
@@ -37,37 +25,26 @@ test_cases = [
     {
         "question": "What problem does PR #3276 fix in the payment service?",
         "ground_truth": "PR #3276 fixes span lifecycle and exception attribution in the charge() method. It ensures span.end() is called on validation-error paths, records the exception and error status where the failure originates, and removes duplicate exception attribution from the gRPC span.",
-    },
+    },                           
 ]
 
 
 def main():
-    model_name = require_env("MODEL")
-    collection_name = require_env("COLLECTION_NAME")
-    base_url = require_env("MODEL_URL")
-    api_key = require_env("API_KEY")
+    embedding_model = get_embedding_model()
+    qdrant_client   = get_qdrant_client() 
 
-    embedding_model = get_embedding_model(
-        os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-    )
-    qdrant = QdrantClient(path="./qdrant_db")
-
-    llm = OpenAI(base_url=base_url, api_key=api_key)
-    evaluator_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    llm = OpenAI(base_url=require_env("MODEL_URL"), api_key=require_env("API_KEY"))
     
-    # Using your original working factory setup
-    evaluator_llm = llm_factory(
-        model_name, provider="openai", client=evaluator_client
-    )
-
-    user_inputs, references, responses, retrieved_contexts = [], [], [], []
+    eval_client = AsyncOpenAI(base_url=require_env("MODEL_URL"), api_key=require_env("API_KEY"))
+    evaluator_llm = llm_factory(require_env("MODEL"), provider="openai", client=eval_client)
+    data = {"user_input": [], "reference": [], "response": [], "retrieved_contexts": []}
 
     for case in test_cases:
         q = case["question"]
         gt = case["ground_truth"]
 
-        results = qdrant.query_points(
-            collection_name=collection_name,
+        results = qdrant_client.query_points(
+            collection_name=require_env("COLLECTION_NAME"),
             query=embedding_model.encode(q).tolist(),
             limit=5,
             with_payload=True,
@@ -76,44 +53,25 @@ def main():
         contexts = [str(point.payload or {}) for point in results]
 
         response = llm.chat.completions.create(
-            model=model_name,
+            model=require_env("MODEL"),
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"User query: {q}\nContext: {' '.join(contexts)}"},
             ],
         ).choices[0].message.content
-
-        print(f"\nQuestion: {q}\nAnswer: {response}")
-
-        user_inputs.append(q)
-        references.append(gt)
-        responses.append(response)
-        retrieved_contexts.append(contexts)
-
-    dataset = Dataset.from_dict({
-        "question": user_inputs,
-        "answer": responses,
-        "contexts": retrieved_contexts,
-        "ground_truth": references,
-    })
-
-    
-    scores = evaluate(
-        dataset,
-        # Your original working metric initializations
-        metrics=[
-            Faithfulness(llm=evaluator_llm),
-            LLMContextPrecisionWithReference(llm=evaluator_llm),
-            LLMContextRecall(llm=evaluator_llm),
-        ],
-        # THIS is the magic line that stops the 429 Rate Limit Errors
-        run_config=RunConfig(max_workers=1, max_retries=10),
-        raise_exceptions=False,
+        
+        data["user_input"].append(q)
+        data["reference"].append(case["ground_truth"])
+        data["response"].append(response)
+        data["retrieved_contexts"].append(contexts)
+        
+    result = evaluate(
+        dataset=Dataset.from_dict(data),
+        metrics=[Faithfulness(), LLMContextPrecisionWithReference(), LLMContextRecall()],
+        llm=evaluator_llm
     )
 
-    df = scores.to_pandas()
-    print(df)
-    df.to_csv("ragas_results.csv", index=False)
+    print(result)
 
 
 if __name__ == "__main__":
