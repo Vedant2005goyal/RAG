@@ -6,51 +6,61 @@ from helpers import require_env
 from constants import SYSTEM_PROMPT
 from schema import AgentResponse
 
-SCORE_THRESHOLD=0.60
-
 load_dotenv()
 
-def agent_loop(user_query:str, embedding_model, qdrant_client, llm_client)->AgentResponse:
-    """ Runs the main conversation loop """
-    message=[{
-        "role":"system",
+SCORE_THRESHOLD = 0.60
+
+
+def agent_loop(user_query: str, embedding_client, qdrant_client, llm_client)->AgentResponse:
+    """Runs the main conversation loop."""
+
+    message = [{
+        "role": "system",
         "content": SYSTEM_PROMPT
     }]
 
-    user_query_embedding = embedding_model.encode(user_query).tolist()
-        
+    response = embedding_client.embeddings.create(
+        model=require_env("EMBEDDING_MODEL"),
+        input=f"search_query: {user_query}"
+    )
+
+    user_query_embedding = response.data[0].embedding
+
     retrieved_context = qdrant_client.query_points(
-        collection_name=os.getenv("COLLECTION_NAME"),
+        collection_name=require_env("COLLECTION_NAME"),
         query=user_query_embedding,
         limit=5,
         with_payload=True
     ).points
-       
-    retrieved_context = [result for result in retrieved_context 
-        if result.score is not None and result.score >= SCORE_THRESHOLD
+
+    retrieved_context = [
+        result for result in retrieved_context
+        if result.score is not None
+        and result.score >= SCORE_THRESHOLD
     ]
-        
-    context=""
-    sources=[]
+
+    context = ""
+    sources = []
+
     for result in retrieved_context:
-        context+=f"{result.payload}\n"
+        payload = result.payload or {}
+
+        context += f"{payload.get('content', '')}\n"
+
         sources.append({
             "score": result.score,
-            "source": (
-                result.payload.get("url")
-                or result.payload.get("source_uri")
-            ),
+            "source": payload.get("url") or payload.get("source_uri")
         })
 
-    prompt=f"User query:{user_query} context: {context}"
-        
-    message.append(
-        {
-            "role":"user",
-            "content":prompt
-        }
-    )
-    response=llm_client.chat.completions.create(
+    prompt = f"User query: {user_query}\n\nContext:\n{context}"
+
+    message.append({
+        "role": "user",
+        "content": prompt
+    })
+
+    # Generate the final answer using your LLM
+    response = llm_client.chat.completions.create(
         model=require_env("MODEL"),
         messages=message
     )
@@ -58,27 +68,35 @@ def agent_loop(user_query:str, embedding_model, qdrant_client, llm_client)->Agen
     llm_reply = response.choices[0].message.content
 
     if not llm_reply:
-        raise RuntimeError("LLM Response is empty.")
+        raise RuntimeError("LLM response is empty.")
 
-    message.append({
-        "role": "assistant",
-        "content": llm_reply
-    })
     return AgentResponse(
         incident=user_query,
         answer=llm_reply,
         sources=sources,
     )
-    
+
+
 if __name__ == "__main__":
-    embedding_model = get_embedding_model()
-    qdrant_client   = get_qdrant_client() 
+    embedding_client = get_embedding_model()
+    qdrant_client = get_qdrant_client()
 
     llm_client = OpenAI(
-        base_url = require_env("MODEL_URL"),
-        api_key  = require_env("API_KEY")
+        base_url=require_env("MODEL_URL"),
+        api_key=require_env("API_KEY")
     )
-    # although i have added a FastAPI endpoint but just in case if I want 
-    # to run only python3 llm.py for that case i have kept below code 
-    user_query=input("Describe the incident: ")
-    agent_loop(user_query, embedding_model, qdrant_client, llm_client)
+
+    try:
+        user_query = input("Describe the incident: ")
+        result = agent_loop(
+            user_query,
+            embedding_client,
+            qdrant_client,
+            llm_client
+        )
+        print(result)
+
+    finally:
+        embedding_client.close()
+        qdrant_client.close()
+        llm_client.close()
